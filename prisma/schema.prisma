@@ -7,20 +7,42 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id       String    @id @default(cuid())
+  username String    @unique
+  password String    // Hashet password
+  role     Role      @default(USER)
+  bookings Booking[]
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 model Booking {
   id        String   @id @default(cuid())
-  startTime DateTime
-  endTime   DateTime
+  date      DateTime @db.Date // Gemmer kun datoen
+  startTime Int      // Klokkeslæt som heltal (fx 9, 10, 21)
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  // Forhindrer dobbeltbookinger på database-niveau!
+  @@unique([date, startTime]) 
+}
+
+model LockedSlot {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  startTime Int
+  reason    String   // Fx "Service vindue"
+
+  @@unique([date, startTime])
+}
+
+model SystemSetting {
+  id       String  @id @default(cuid())
+  key      String  @unique // Fx "SERVICE_MESSAGE"
+  value    String
+  isActive Boolean @default(false)
 }
