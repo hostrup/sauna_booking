@@ -12,22 +12,39 @@ export const authOptions = {
         password: { label: "Adgangskode", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
+        console.log("---> [AUTH] Loginforsøg modtaget for bruger:", credentials?.username);
 
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username }
-        });
+        if (!credentials?.username || !credentials?.password) {
+          console.log("---> [AUTH] Fejl: Manglende brugernavn eller password");
+          return null;
+        }
 
-        if (!user) return null;
+        try {
+          const user = await prisma.user.findUnique({
+            where: { username: credentials.username }
+          });
 
-        const passwordsMatch = await bcrypt.compare(credentials.password, user.password);
-        if (!passwordsMatch) return null;
+          if (!user) {
+            console.log("---> [AUTH] Fejl: Brugeren findes ikke i databasen");
+            return null;
+          }
 
-        return {
-          id: user.id,
-          name: user.username,
-          role: user.role,
-        };
+          const passwordsMatch = await bcrypt.compare(credentials.password, user.password);
+          if (!passwordsMatch) {
+            console.log("---> [AUTH] Fejl: Forkert password angivet");
+            return null;
+          }
+
+          console.log("---> [AUTH] Succes! Password matcher for:", user.username);
+          return {
+            id: user.id,
+            name: user.username,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("---> [AUTH] Kritisk Database Fejl under login:", error);
+          return null;
+        }
       }
     })
   ],
@@ -48,7 +65,8 @@ export const authOptions = {
     }
   },
   pages: {
-    signIn: '/login', // Vi bygger denne side i næste skridt
+    signIn: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET || "super-secret-sauna-key-2026",
+  debug: true, // <--- TÆNDER FOR AL INTERN NEXTAUTH LOGGING!
 };

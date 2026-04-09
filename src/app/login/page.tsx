@@ -7,17 +7,23 @@ import { Flame } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  
+  // Vi gemmer nu værdierne manuelt i stedet for at lade HTML-formularen gøre det
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (!username || !password) {
+      setError("Udfyld venligst både brugernavn og adgangskode.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
-    const formData = new FormData(e.currentTarget);
-    const username = formData.get("username") as string;
-    const password = formData.get("password") as string;
+    console.log("Sender login-anmodning til NextAuth for:", username);
 
     try {
       const res = await signIn("credentials", {
@@ -26,16 +32,30 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      console.log("Råt svar fra NextAuth:", res);
+
       if (res?.error) {
-        setError("Ugyldigt brugernavn eller adgangskode");
+        setError(`Login afvist. Tjek dit kodeord.`);
         setIsLoading(false);
-      } else {
+      } else if (res?.ok) {
+        console.log("Login godkendt! Omdirigerer til dashboard...");
         router.push("/");
-        router.refresh(); // Tvinger serveren til at hente den nye session
+        router.refresh();
+      } else {
+        setError("Ukendt fejl: Ingen respons fra serveren.");
+        setIsLoading(false);
       }
     } catch (err) {
-      setError("Der opstod en systemfejl.");
+      console.error("Systemfejl under login:", err);
+      setError(`Systemfejl: ${err}`);
       setIsLoading(false);
+    }
+  };
+
+  // Gør det muligt stadig at logge ind ved at trykke på Enter-tasten
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLogin();
     }
   };
 
@@ -51,7 +71,8 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-zinc-400">Log ind for at reservere din tid</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        {/* BEMÆRK: Vi har fjernet <form> og bruger en normal <div> i stedet */}
+        <div className="mt-8 space-y-6" onKeyDown={handleKeyDown}>
           {error && (
             <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-500 text-center border border-red-500/20">
               {error}
@@ -63,9 +84,9 @@ export default function LoginPage() {
               <label htmlFor="username" className="sr-only">Brugernavn</label>
               <input
                 id="username"
-                name="username"
                 type="text"
-                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-white placeholder-zinc-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
                 placeholder="Brugernavn"
               />
@@ -74,9 +95,9 @@ export default function LoginPage() {
               <label htmlFor="password" className="sr-only">Adgangskode</label>
               <input
                 id="password"
-                name="password"
                 type="password"
-                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-white placeholder-zinc-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
                 placeholder="Adgangskode"
               />
@@ -84,13 +105,13 @@ export default function LoginPage() {
           </div>
 
           <button
-            type="submit"
+            onClick={handleLogin}
             disabled={isLoading}
             className="flex w-full justify-center rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Logger ind..." : "Log ind"}
           </button>
-        </form>
+        </div>
       </div>
     </main>
   );
