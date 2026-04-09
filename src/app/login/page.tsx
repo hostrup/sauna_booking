@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Flame } from "lucide-react";
 
 export default function LoginPage() {
@@ -13,14 +13,25 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Denne vil logge i din F12 konsol, så snart siden er indlæst
+  useEffect(() => {
+    console.log("🔥 LoginPage er mountet og JavaScript kører!");
+  }, []);
+
   const handleLogin = async () => {
+    console.log("1. Knappen blev trykket!");
+    console.log("2. Indtastet brugernavn:", username);
+
     if (!username || !password) {
+      console.log("3. Afbrudt: Mangler input");
       setError("Udfyld venligst både brugernavn og adgangskode.");
       return;
     }
 
     setIsLoading(true);
     setError("");
+
+    console.log("4. Kalder signIn via NextAuth...");
 
     try {
       const res = await signIn("credentials", {
@@ -29,25 +40,25 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      console.log("5. Svar modtaget fra NextAuth:", res);
+
       if (res?.error) {
+        console.log("6. Login afvist af serveren:", res.error);
         setError(`Login afvist. Tjek dit kodeord.`);
         setIsLoading(false);
       } else if (res?.ok) {
+        console.log("6. Login OK! Skifter til forsiden...");
         router.push("/");
         router.refresh();
       } else {
+        console.log("6. Ukendt svar-format:", res);
         setError("Ukendt fejl: Ingen respons fra serveren.");
         setIsLoading(false);
       }
     } catch (err) {
+      console.error("❌ Kritisk systemfejl fanget i catch-blokken:", err);
       setError(`Systemfejl: ${err}`);
       setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleLogin();
     }
   };
 
@@ -63,7 +74,7 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-zinc-400">Log ind for at reservere din tid</p>
         </div>
 
-        <div className="mt-8 space-y-6" onKeyDown={handleKeyDown}>
+        <div className="mt-8 space-y-6">
           {error && (
             <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-500 text-center border border-red-500/20">
               {error}
@@ -96,7 +107,11 @@ export default function LoginPage() {
           </div>
 
           <button
-            onClick={handleLogin}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              handleLogin();
+            }}
             disabled={isLoading}
             className="flex w-full justify-center rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
