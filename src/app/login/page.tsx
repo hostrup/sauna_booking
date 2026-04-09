@@ -8,7 +8,6 @@ import { Flame } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   
-  // Vi gemmer nu værdierne manuelt i stedet for at lade HTML-formularen gøre det
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,8 +22,6 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
-    console.log("Sender login-anmodning til NextAuth for:", username);
-
     try {
       const res = await signIn("credentials", {
         username,
@@ -32,13 +29,10 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      console.log("Råt svar fra NextAuth:", res);
-
       if (res?.error) {
         setError(`Login afvist. Tjek dit kodeord.`);
         setIsLoading(false);
       } else if (res?.ok) {
-        console.log("Login godkendt! Omdirigerer til dashboard...");
         router.push("/");
         router.refresh();
       } else {
@@ -46,13 +40,11 @@ export default function LoginPage() {
         setIsLoading(false);
       }
     } catch (err) {
-      console.error("Systemfejl under login:", err);
       setError(`Systemfejl: ${err}`);
       setIsLoading(false);
     }
   };
 
-  // Gør det muligt stadig at logge ind ved at trykke på Enter-tasten
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleLogin();
@@ -71,7 +63,6 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-zinc-400">Log ind for at reservere din tid</p>
         </div>
 
-        {/* BEMÆRK: Vi har fjernet <form> og bruger en normal <div> i stedet */}
         <div className="mt-8 space-y-6" onKeyDown={handleKeyDown}>
           {error && (
             <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-500 text-center border border-red-500/20">
