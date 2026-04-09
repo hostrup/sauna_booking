@@ -2,44 +2,84 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export async function createBooking(formData: FormData) {
-  try {
-    const email = formData.get('email') as string;
-    const date = formData.get('date') as string;
-    const startTimeStr = formData.get('startTime') as string;
-    const endTimeStr = formData.get('endTime') as string;
+export async function createBooking(dateIso: string, startTime: number, userIdToBook?: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Du skal være logget ind");
 
-    if (!email || !date || !startTimeStr || !endTimeStr) {
-      throw new Error("Udfyld venligst alle felter");
+  const currentUserRole = (session.user as any).role;
+  const currentUserId = (session.user as any).id;
+
+  // Hvis Admin har valgt en specifik bruger at booke for, bruger vi den ID. Ellers ens egen.
+  const targetUserId = (currentUserRole === 'ADMIN' && userIdToBook) ? userIdToBook : currentUserId;
+
+  await prisma.booking.create({
+    data: {
+      date: new Date(dateIso),
+      startTime,
+      userId: targetUserId
     }
+  });
 
-    const startTime = new Date(`${date}T${startTimeStr}:00Z`);
-    const endTime = new Date(`${date}T${endTimeStr}:00Z`);
+  revalidatePath('/');
+}
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: { 
-        email, 
-        name: email.split('@')[0]
-      }
-    });
+export async function deleteBooking(bookingId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Du skal være logget ind");
 
-    await prisma.booking.create({
-      data: {
-        startTime,
-        endTime,
-        userId: user.id
-      }
-    });
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!booking) throw new Error("Bookingen findes ikke");
 
-    // Opdaterer data på forsiden (uden at tvinge et hard-reload via redirect)
-    revalidatePath('/');
-    
-  } catch (error) {
-    // Logger den præcise fejl i din Docker-terminal
-    console.error("Server Action Fejl:", error);
-    throw new Error("Bookingen fejlede. Tjek loggen.");
+  const currentUserId = (session.user as any).id;
+  const currentUserRole = (session.user as any).role;
+
+  // Kun ejeren af bookingen ELLER en admin må slette
+  if (booking.userId !== currentUserId && currentUserRole !== 'ADMIN') {
+    throw new Error("Ingen adgang");
   }
+
+  await prisma.booking.delete({ where: { id: bookingId } });
+  revalidatePath('/');
+}
+
+export async function toggleLockSlot(dateIso: string, startTime: number, reason: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role !== 'ADMIN') throw new Error("Kun administratorer har adgang");
+
+  const existing = await prisma.lockedSlot.findUnique({
+    where: {
+      date_startTime: {
+        date: new Date(dateIso),
+        startTime
+      }
+    }
+  });
+
+  if (existing) {
+    await prisma.lockedSlot.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.lockedSlot.create({
+      data: {
+        date: new Date(dateIso),
+        startTime,
+        reason
+      }
+    });
+  }
+  revalidatePath('/');
+}
+
+export async function updateServiceMessage(message: string, isActive: boolean) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role !== 'ADMIN') throw new Error("Kun administratorer har adgang");
+
+  await prisma.systemSetting.upsert({
+    where: { key: "SERVICE_MESSAGE" },
+    update: { value: message, isActive },
+    create: { key: "SERVICE_MESSAGE", value: message, isActive }
+  });
+  revalidatePath('/');
 }
